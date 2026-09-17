@@ -91,7 +91,7 @@ fun FirstScreen(
                 }
 
 
-                Spacer(modifier = Modifier.height(115.dp))
+                Spacer(modifier = Modifier.height(50.dp))
 
                 Text(
                     text = "SmartTrace",
