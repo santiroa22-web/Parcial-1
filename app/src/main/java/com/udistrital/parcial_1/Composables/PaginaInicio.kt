@@ -152,7 +152,7 @@ fun PaginaInicio() {
                         filtroInicial = filtroCasos,
                         onCasoSeleccionado = { caso -> casoSeleccionadoParaEditar = caso }
                     )
-                    2 -> { /* Próximamente: Estadísticas */ }
+                    2 -> EstadisticasScreen()
                     3 -> SettingsScreen()
                 }
             }
