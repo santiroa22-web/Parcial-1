@@ -1,0 +1,275 @@
+package com.udistrital.parcial_1.composables
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.udistrital.parcial_1.model.Caso
+import com.udistrital.parcial_1.model.CasoRepository
+import com.udistrital.parcial_1.model.Evidencia
+import com.udistrital.parcial_1.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/** Genera una fecha/hora legible para el registro de una evidencia. */
+fun fechaHoraActual(): String =
+    SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+
+/**
+ * Sección embebida en el detalle/edición de un caso para registrar y
+ * consultar los hallazgos y evidencias asociados (texto, imagen, documento).
+ */
+@Composable
+fun SeccionEvidencias(
+    caso: Caso,
+    habilitado: Boolean
+) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Hallazgos y Evidencias",
+                fontSize = 13.sp,
+                color = DetectiveAccentCyan,
+                fontWeight = FontWeight.Bold
+            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = DetectiveBadgeBg
+            ) {
+                Text(
+                    text = "${caso.evidencias.size}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = DetectiveAccentCyan,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (caso.evidencias.isEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = DetectiveCardBg.copy(alpha = 0.6f),
+                border = BorderStroke(1.dp, DetectiveCardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Aún no se han registrado hallazgos ni evidencias para este expediente.",
+                    fontSize = 12.sp,
+                    color = DetectiveTextSecondary,
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                caso.evidencias.forEach { evidencia ->
+                    EvidenciaItem(
+                        evidencia = evidencia,
+                        habilitado = habilitado,
+                        onEliminar = {
+                            CasoRepository.eliminarEvidencia(context, caso.id, evidencia.id)
+                        }
+                    )
+                }
+            }
+        }
+
+        if (habilitado) {
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = { showDialog = true },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = DetectiveAccentCyan),
+                border = BorderStroke(1.dp, DetectiveAccentCyan),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Agregar Hallazgo / Evidencia", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    if (showDialog) {
+        DialogAgregarEvidencia(
+            onDismiss = { showDialog = false },
+            onGuardar = { evidencia ->
+                CasoRepository.agregarEvidencia(context, caso.id, evidencia)
+                showDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun EvidenciaItem(
+    evidencia: Evidencia,
+    habilitado: Boolean,
+    onEliminar: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = DetectiveCardBg,
+        border = BorderStroke(1.dp, DetectiveCardBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconoTipoEvidencia(evidencia.tipo)
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = evidencia.tipo,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = DetectiveAccentCyan
+                )
+                Text(
+                    text = evidencia.descripcion,
+                    fontSize = 13.sp,
+                    color = DetectiveTextPrimary,
+                    maxLines = 3
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = evidencia.fecha,
+                    fontSize = 10.sp,
+                    color = DetectiveTextSecondary
+                )
+            }
+            if (habilitado) {
+                IconButton(onClick = onEliminar) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar",
+                        tint = Color(0xFFFF5252),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun IconoTipoEvidencia(tipo: String) {
+    val icon = when (tipo) {
+        else -> Icons.Default.FindInPage
+    }
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(DetectiveBadgeBg),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = DetectiveAccentCyan,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DialogAgregarEvidencia(
+    onDismiss: () -> Unit,
+    onGuardar: (Evidencia) -> Unit
+) {
+    var descripcion by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DetectiveCardBg,
+        title = {
+            Text(
+                text = "Nuevo Hallazgo",
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = DetectiveTextPrimary
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Describe el hallazgo o la evidencia encontrada en la escena o investigación.",
+                    fontSize = 12.sp,
+                    color = DetectiveTextSecondary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = descripcion,
+                    onValueChange = { descripcion = it },
+                    placeholder = { Text("Ej: Huella dactilar en la manija de la puerta", fontSize = 12.sp) },
+                    minLines = 3,
+                    maxLines = 5,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = DetectiveTextPrimary,
+                        unfocusedTextColor = DetectiveTextPrimary,
+                        focusedBorderColor = DetectiveAccentCyan,
+                        unfocusedBorderColor = DetectiveCardBorder,
+                        focusedContainerColor = DetectiveDarkBg,
+                        unfocusedContainerColor = DetectiveDarkBg
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (descripcion.isNotBlank()) {
+                        onGuardar(
+                            Evidencia(
+                                id = "EV-${System.currentTimeMillis()}",
+                                tipo = "Hallazgo",
+                                descripcion = descripcion,
+                                fecha = fechaHoraActual()
+                            )
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = DetectiveAccentBlue)
+            ) {
+                Text("Guardar", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = DetectiveTextSecondary)
+            }
+        }
+    )
+}
