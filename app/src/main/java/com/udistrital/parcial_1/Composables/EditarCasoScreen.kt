@@ -201,6 +201,10 @@ fun EditarCasoScreen(
             enabled = !esCasoCerrado
         )
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        SeccionEvidencias(caso = caso, habilitado = !esCasoCerrado)
+
         Spacer(modifier = Modifier.height(24.dp))
 
         if (!esCasoCerrado) {

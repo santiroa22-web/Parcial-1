@@ -14,7 +14,21 @@ data class Caso(
     var implicados: String,
     var prioridad: String,
     var estado: String, // "Abierto" o "Cerrado"
-    var descripcion: String
+    var descripcion: String,
+    val evidencias: MutableList<Evidencia> = mutableStateListOf()
+)
+
+/**
+ * Representa un hallazgo o evidencia asociado a un caso.
+ * tipo puede ser: "Hallazgo" (texto), "Imagen" o "Documento".
+ */
+data class Evidencia(
+    val id: String,
+    val tipo: String,
+    var descripcion: String,
+    var uri: String? = null,
+    var nombreArchivo: String? = null,
+    val fecha: String
 )
 
 object CasoRepository {
@@ -59,6 +73,25 @@ object CasoRepository {
                 val jsonArray = JSONArray(jsonStr)
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
+
+                    val evidenciasList = mutableStateListOf<Evidencia>()
+                    val evidenciasArray = obj.optJSONArray("evidencias")
+                    if (evidenciasArray != null) {
+                        for (j in 0 until evidenciasArray.length()) {
+                            val eObj = evidenciasArray.getJSONObject(j)
+                            evidenciasList.add(
+                                Evidencia(
+                                    id = eObj.optString("id", ""),
+                                    tipo = eObj.optString("tipo", "Hallazgo"),
+                                    descripcion = eObj.optString("descripcion", ""),
+                                    uri = eObj.optString("uri", "").ifBlank { null },
+                                    nombreArchivo = eObj.optString("nombreArchivo", "").ifBlank { null },
+                                    fecha = eObj.optString("fecha", "")
+                                )
+                            )
+                        }
+                    }
+
                     listaCasos.add(
                         Caso(
                             id = obj.optString("id", ""),
@@ -69,7 +102,8 @@ object CasoRepository {
                             implicados = obj.optString("implicados", ""),
                             prioridad = obj.optString("prioridad", ""),
                             estado = obj.optString("estado", "Abierto"),
-                            descripcion = obj.optString("descripcion", "")
+                            descripcion = obj.optString("descripcion", ""),
+                            evidencias = evidenciasList
                         )
                     )
                 }
@@ -103,9 +137,35 @@ object CasoRepository {
         }
     }
 
+    /** Registra un hallazgo o evidencia (texto, imagen o documento) dentro de un caso. */
+    fun agregarEvidencia(context: Context, casoId: String, evidencia: Evidencia) {
+        val caso = listaCasos.find { it.id == casoId } ?: return
+        caso.evidencias.add(0, evidencia)
+        guardarCasos(context)
+    }
+
+    fun eliminarEvidencia(context: Context, casoId: String, evidenciaId: String) {
+        val caso = listaCasos.find { it.id == casoId } ?: return
+        caso.evidencias.removeAll { it.id == evidenciaId }
+        guardarCasos(context)
+    }
+
     private fun guardarCasos(context: Context) {
         val jsonArray = JSONArray()
         for (caso in listaCasos) {
+            val evidenciasJsonArray = JSONArray()
+            for (ev in caso.evidencias) {
+                val eObj = JSONObject().apply {
+                    put("id", ev.id)
+                    put("tipo", ev.tipo)
+                    put("descripcion", ev.descripcion)
+                    put("uri", ev.uri ?: "")
+                    put("nombreArchivo", ev.nombreArchivo ?: "")
+                    put("fecha", ev.fecha)
+                }
+                evidenciasJsonArray.put(eObj)
+            }
+
             val obj = JSONObject().apply {
                 put("id", caso.id)
                 put("titulo", caso.titulo)
@@ -116,6 +176,7 @@ object CasoRepository {
                 put("prioridad", caso.prioridad)
                 put("estado", caso.estado)
                 put("descripcion", caso.descripcion)
+                put("evidencias", evidenciasJsonArray)
             }
             jsonArray.put(obj)
         }
