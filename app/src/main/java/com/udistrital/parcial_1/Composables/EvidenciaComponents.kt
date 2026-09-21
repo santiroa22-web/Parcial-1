@@ -1,6 +1,12 @@
 package com.udistrital.parcial_1.composables
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -9,12 +15,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -144,7 +154,11 @@ fun EvidenciaItem(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconoTipoEvidencia(evidencia.tipo)
+            if (evidencia.tipo == "Imagen" && evidencia.uri != null) {
+                ImagenEvidenciaThumbnail(uriString = evidencia.uri!!)
+            } else {
+                IconoTipoEvidencia(evidencia.tipo)
+            }
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -183,6 +197,7 @@ fun EvidenciaItem(
 @Composable
 fun IconoTipoEvidencia(tipo: String) {
     val icon = when (tipo) {
+        "Imagen" -> Icons.Default.Image
         else -> Icons.Default.FindInPage
     }
     Box(
@@ -201,20 +216,77 @@ fun IconoTipoEvidencia(tipo: String) {
     }
 }
 
+/** Miniatura de una evidencia de tipo Imagen, decodificada desde su Uri. */
+@Composable
+fun ImagenEvidenciaThumbnail(uriString: String) {
+    val context = LocalContext.current
+    var bitmap by remember(uriString) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(uriString) {
+        bitmap = try {
+            context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
+                BitmapFactory.decodeStream(it)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(DetectiveBadgeBg),
+        contentAlignment = Alignment.Center
+    ) {
+        val bmp = bitmap
+        if (bmp != null) {
+            Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = "Evidencia fotográfica",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = null,
+                tint = DetectiveAccentCyan,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialogAgregarEvidencia(
     onDismiss: () -> Unit,
     onGuardar: (Evidencia) -> Unit
 ) {
+    var tipoSeleccionado by remember { mutableStateOf("Hallazgo") }
     var descripcion by remember { mutableStateOf("") }
+    var imagenUri by remember { mutableStateOf<Uri?>(null) }
+
+    val seleccionarImagenLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            imagenUri = uri
+        }
+    }
+
+    val puedeGuardar = when (tipoSeleccionado) {
+        "Imagen" -> imagenUri != null
+        else -> descripcion.isNotBlank()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DetectiveCardBg,
         title = {
             Text(
-                text = "Nuevo Hallazgo",
+                text = "Nuevo Hallazgo / Evidencia",
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = DetectiveTextPrimary
@@ -222,17 +294,83 @@ fun DialogAgregarEvidencia(
         },
         text = {
             Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Hallazgo", "Imagen").forEach { tipo ->
+                        FilterChip(
+                            selected = tipoSeleccionado == tipo,
+                            onClick = { tipoSeleccionado = tipo },
+                            label = { Text(tipo, fontSize = 12.sp) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (tipo == "Imagen") Icons.Default.PhotoCamera else Icons.Default.FindInPage,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = DetectiveAccentBlue,
+                                selectedLabelColor = Color.White,
+                                selectedLeadingIconColor = Color.White,
+                                containerColor = DetectiveDarkBg,
+                                labelColor = DetectiveTextSecondary
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Text(
-                    text = "Describe el hallazgo o la evidencia encontrada en la escena o investigación.",
+                    text = if (tipoSeleccionado == "Imagen")
+                        "Selecciona una foto o imagen de evidencia."
+                    else
+                        "Describe el hallazgo o la evidencia encontrada en la escena o investigación.",
                     fontSize = 12.sp,
                     color = DetectiveTextSecondary
                 )
+
                 Spacer(modifier = Modifier.height(10.dp))
+
+                if (tipoSeleccionado == "Imagen") {
+                    OutlinedButton(
+                        onClick = { seleccionarImagenLauncher.launch("image/*") },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DetectiveAccentCyan),
+                        border = BorderStroke(1.dp, DetectiveAccentCyan),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (imagenUri == null) "Seleccionar Imagen" else "Cambiar Imagen", fontSize = 13.sp)
+                    }
+
+                    if (imagenUri != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(DetectiveDarkBg),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            ImagenEvidenciaThumbnail(uriString = imagenUri.toString())
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 OutlinedTextField(
                     value = descripcion,
                     onValueChange = { descripcion = it },
-                    placeholder = { Text("Ej: Huella dactilar en la manija de la puerta", fontSize = 12.sp) },
-                    minLines = 3,
+                    placeholder = {
+                        Text(
+                            text = if (tipoSeleccionado == "Imagen") "Descripción (opcional)" else "Ej: Huella dactilar en la manija de la puerta",
+                            fontSize = 12.sp
+                        )
+                    },
+                    minLines = if (tipoSeleccionado == "Imagen") 1 else 3,
                     maxLines = 5,
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -250,17 +388,28 @@ fun DialogAgregarEvidencia(
         confirmButton = {
             Button(
                 onClick = {
-                    if (descripcion.isNotBlank()) {
-                        onGuardar(
+                    val nuevaEvidencia = when (tipoSeleccionado) {
+                        "Imagen" -> imagenUri?.let { uri ->
+                            Evidencia(
+                                id = "EV-${System.currentTimeMillis()}",
+                                tipo = "Imagen",
+                                descripcion = descripcion.ifBlank { "Imagen adjunta como evidencia" },
+                                uri = uri.toString(),
+                                fecha = fechaHoraActual()
+                            )
+                        }
+                        else -> if (descripcion.isNotBlank()) {
                             Evidencia(
                                 id = "EV-${System.currentTimeMillis()}",
                                 tipo = "Hallazgo",
                                 descripcion = descripcion,
                                 fecha = fechaHoraActual()
                             )
-                        )
+                        } else null
                     }
+                    if (nuevaEvidencia != null) onGuardar(nuevaEvidencia)
                 },
+                enabled = puedeGuardar,
                 colors = ButtonDefaults.buttonColors(containerColor = DetectiveAccentBlue)
             ) {
                 Text("Guardar", color = Color.White, fontWeight = FontWeight.Bold)
