@@ -2,6 +2,8 @@ package com.udistrital.parcial_1.composables
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,7 +25,7 @@ import com.udistrital.parcial_1.model.Caso
 import com.udistrital.parcial_1.model.CasoRepository
 import com.udistrital.parcial_1.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditarCasoScreen(
     caso: Caso,
@@ -120,11 +122,11 @@ fun EditarCasoScreen(
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            categorias.take(3).forEach { cat ->
+            categorias.forEach { cat ->
                 FilterChip(
                     selected = categoria == cat,
                     onClick = { if (!esCasoCerrado) categoria = cat },

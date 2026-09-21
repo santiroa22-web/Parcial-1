@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import com.udistrital.parcial_1.model.Caso
 import com.udistrital.parcial_1.model.CasoRepository
 import com.udistrital.parcial_1.ui.theme.*
@@ -32,6 +34,7 @@ fun MisCasosScreen(
 ) {
     val context = LocalContext.current
     var filtroEstado by remember { mutableStateOf(filtroInicial) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(filtroInicial) {
         filtroEstado = filtroInicial
@@ -39,7 +42,14 @@ fun MisCasosScreen(
     }
 
     val todosLosCasos = CasoRepository.listaCasos
-    val casosFiltrados = todosLosCasos.filter { it.estado == filtroEstado }
+    val casosFiltrados = todosLosCasos.filter { caso ->
+        caso.estado == filtroEstado &&
+        (searchQuery.isBlank() ||
+            caso.titulo.contains(searchQuery, ignoreCase = true) ||
+            caso.id.contains(searchQuery, ignoreCase = true) ||
+            caso.implicados.contains(searchQuery, ignoreCase = true) ||
+            caso.ubicacion.contains(searchQuery, ignoreCase = true))
+    }
 
     Column(
         modifier = Modifier
@@ -102,6 +112,51 @@ fun MisCasosScreen(
                 Text("Cerrados", fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = {
+                Text(
+                    text = "Buscar por título, ID, lugar...",
+                    color = DetectiveTextSecondary.copy(alpha = 0.6f),
+                    fontSize = 13.sp
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Buscar",
+                    tint = DetectiveAccentCyan,
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Limpiar",
+                            tint = DetectiveTextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = DetectiveTextPrimary,
+                unfocusedTextColor = DetectiveTextPrimary,
+                focusedBorderColor = DetectiveAccentCyan,
+                unfocusedBorderColor = DetectiveCardBorder,
+                focusedContainerColor = DetectiveCardBg,
+                unfocusedContainerColor = DetectiveCardBg
+            ),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
