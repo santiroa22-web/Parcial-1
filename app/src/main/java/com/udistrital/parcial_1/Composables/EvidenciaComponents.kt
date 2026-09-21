@@ -1,22 +1,27 @@
 package com.udistrital.parcial_1.composables
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +45,22 @@ import java.util.Locale
 /** Genera una fecha/hora legible para el registro de una evidencia. */
 fun fechaHoraActual(): String =
     SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+
+/** Consulta el nombre "amigable" de un archivo (documento) a partir de su Uri. */
+fun obtenerNombreArchivo(context: android.content.Context, uri: Uri): String {
+    var nombre = "Documento adjunto"
+    try {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && nameIndex >= 0) {
+                nombre = cursor.getString(nameIndex) ?: nombre
+            }
+        }
+    } catch (e: Exception) {
+        // Se conserva el nombre por defecto si no se puede resolver
+    }
+    return nombre
+}
 
 /**
  * Sección embebida en el detalle/edición de un caso para registrar y
@@ -144,20 +165,39 @@ fun EvidenciaItem(
     habilitado: Boolean,
     onEliminar: () -> Unit
 ) {
+    val context = LocalContext.current
+    val esDocumentoAbrible = evidencia.tipo == "Documento" && evidencia.uri != null
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = DetectiveCardBg,
         border = BorderStroke(1.dp, DetectiveCardBorder),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { base ->
+                if (esDocumentoAbrible) {
+                    base.clickable {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(Uri.parse(evidencia.uri), "*/*")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // No hay una app que pueda abrir el documento
+                        }
+                    }
+                } else base
+            }
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (evidencia.tipo == "Imagen" && evidencia.uri != null) {
-                ImagenEvidenciaThumbnail(uriString = evidencia.uri!!)
-            } else {
-                IconoTipoEvidencia(evidencia.tipo)
+            when {
+                evidencia.tipo == "Imagen" && evidencia.uri != null ->
+                    ImagenEvidenciaThumbnail(uriString = evidencia.uri!!)
+                else -> IconoTipoEvidencia(evidencia.tipo)
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -168,11 +208,19 @@ fun EvidenciaItem(
                     color = DetectiveAccentCyan
                 )
                 Text(
-                    text = evidencia.descripcion,
+                    text = if (evidencia.tipo == "Documento") (evidencia.nombreArchivo ?: evidencia.descripcion) else evidencia.descripcion,
                     fontSize = 13.sp,
                     color = DetectiveTextPrimary,
                     maxLines = 3
                 )
+                if (evidencia.tipo == "Documento" && !evidencia.nombreArchivo.isNullOrBlank() && evidencia.descripcion.isNotBlank()) {
+                    Text(
+                        text = evidencia.descripcion,
+                        fontSize = 11.sp,
+                        color = DetectiveTextSecondary,
+                        maxLines = 2
+                    )
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = evidencia.fecha,
@@ -198,6 +246,7 @@ fun EvidenciaItem(
 fun IconoTipoEvidencia(tipo: String) {
     val icon = when (tipo) {
         "Imagen" -> Icons.Default.Image
+        "Documento" -> Icons.Default.Description
         else -> Icons.Default.FindInPage
     }
     Box(
@@ -264,9 +313,12 @@ fun DialogAgregarEvidencia(
     onDismiss: () -> Unit,
     onGuardar: (Evidencia) -> Unit
 ) {
+    val context = LocalContext.current
     var tipoSeleccionado by remember { mutableStateOf("Hallazgo") }
     var descripcion by remember { mutableStateOf("") }
     var imagenUri by remember { mutableStateOf<Uri?>(null) }
+    var documentoUri by remember { mutableStateOf<Uri?>(null) }
+    var documentoNombre by remember { mutableStateOf<String?>(null) }
 
     val seleccionarImagenLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -276,8 +328,26 @@ fun DialogAgregarEvidencia(
         }
     }
 
+    val seleccionarDocumentoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                // Algunos proveedores no soportan permisos persistentes; se continúa igual
+            }
+            documentoUri = uri
+            documentoNombre = obtenerNombreArchivo(context, uri)
+        }
+    }
+
     val puedeGuardar = when (tipoSeleccionado) {
         "Imagen" -> imagenUri != null
+        "Documento" -> documentoUri != null
         else -> descripcion.isNotBlank()
     }
 
@@ -295,16 +365,20 @@ fun DialogAgregarEvidencia(
         text = {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Hallazgo", "Imagen").forEach { tipo ->
+                    listOf("Hallazgo", "Imagen", "Documento").forEach { tipo ->
                         FilterChip(
                             selected = tipoSeleccionado == tipo,
                             onClick = { tipoSeleccionado = tipo },
-                            label = { Text(tipo, fontSize = 12.sp) },
+                            label = { Text(tipo, fontSize = 11.sp) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = if (tipo == "Imagen") Icons.Default.PhotoCamera else Icons.Default.FindInPage,
+                                    imageVector = when (tipo) {
+                                        "Imagen" -> Icons.Default.PhotoCamera
+                                        "Documento" -> Icons.Default.UploadFile
+                                        else -> Icons.Default.FindInPage
+                                    },
                                     contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
@@ -321,10 +395,11 @@ fun DialogAgregarEvidencia(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = if (tipoSeleccionado == "Imagen")
-                        "Selecciona una foto o imagen de evidencia."
-                    else
-                        "Describe el hallazgo o la evidencia encontrada en la escena o investigación.",
+                    text = when (tipoSeleccionado) {
+                        "Imagen" -> "Selecciona una foto o imagen de evidencia."
+                        "Documento" -> "Adjunta un documento (PDF, Word, etc.) como evidencia."
+                        else -> "Describe el hallazgo o la evidencia encontrada en la escena o investigación."
+                    },
                     fontSize = 12.sp,
                     color = DetectiveTextSecondary
                 )
@@ -359,6 +434,49 @@ fun DialogAgregarEvidencia(
                     }
                 }
 
+                if (tipoSeleccionado == "Documento") {
+                    OutlinedButton(
+                        onClick = { seleccionarDocumentoLauncher.launch(arrayOf("*/*")) },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DetectiveAccentCyan),
+                        border = BorderStroke(1.dp, DetectiveAccentCyan),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (documentoUri == null) "Seleccionar Documento" else "Cambiar Documento", fontSize = 13.sp)
+                    }
+
+                    if (documentoNombre != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = DetectiveDarkBg,
+                            border = BorderStroke(1.dp, DetectiveCardBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = DetectiveAccentCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = documentoNombre ?: "",
+                                    fontSize = 12.sp,
+                                    color = DetectiveTextPrimary,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedTextField(
@@ -366,11 +484,11 @@ fun DialogAgregarEvidencia(
                     onValueChange = { descripcion = it },
                     placeholder = {
                         Text(
-                            text = if (tipoSeleccionado == "Imagen") "Descripción (opcional)" else "Ej: Huella dactilar en la manija de la puerta",
+                            text = if (tipoSeleccionado == "Hallazgo") "Ej: Huella dactilar en la manija de la puerta" else "Descripción (opcional)",
                             fontSize = 12.sp
                         )
                     },
-                    minLines = if (tipoSeleccionado == "Imagen") 1 else 3,
+                    minLines = if (tipoSeleccionado == "Hallazgo") 3 else 1,
                     maxLines = 5,
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -395,6 +513,16 @@ fun DialogAgregarEvidencia(
                                 tipo = "Imagen",
                                 descripcion = descripcion.ifBlank { "Imagen adjunta como evidencia" },
                                 uri = uri.toString(),
+                                fecha = fechaHoraActual()
+                            )
+                        }
+                        "Documento" -> documentoUri?.let { uri ->
+                            Evidencia(
+                                id = "EV-${System.currentTimeMillis()}",
+                                tipo = "Documento",
+                                descripcion = descripcion,
+                                uri = uri.toString(),
+                                nombreArchivo = documentoNombre,
                                 fecha = fechaHoraActual()
                             )
                         }
