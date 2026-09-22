@@ -5,18 +5,14 @@ import androidx.compose.runtime.mutableStateListOf
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Modelo de un caso criminal.
- * Cumple con los campos mínimos requeridos por el profesor:
- * título, descripción, fecha y estado.
- * Además cada caso tiene una lista de hallazgos/evidencias.
- */
+
 data class Caso(
     val id: String,
     var titulo: String,
     var descripcion: String,
-    var fecha: String,
-    var estado: String, // "Abierto" o "Cerrado"
+    var fecha: String,        // Fecha de registro
+    var fechaInicio: String,  // Fecha de inicio del suceso/investigación
+    var estado: String,       // "Abierto" o "Cerrado"
     val evidencias: MutableList<Evidencia> = mutableStateListOf()
 )
 
@@ -52,17 +48,19 @@ object CasoRepository {
             listaCasos.addAll(
                 listOf(
                     Caso(
-                        id = "CAS-2026-001",
+                        id = "CAS-001",
                         titulo = "Hurto en la Joyería Real",
                         descripcion = "Ingreso nocturno forzando la cerradura posterior. Sustracción de joyas.",
                         fecha = "15/09/2026",
+                        fechaInicio = "14/09/2026",
                         estado = "Abierto"
                     ),
                     Caso(
-                        id = "CAS-2026-002",
+                        id = "CAS-002",
                         titulo = "Fraude Bancario Digital",
                         descripcion = "Desvío de fondos mediante suplantación de identidad en pasarela de pagos.",
                         fecha = "10/09/2026",
+                        fechaInicio = "01/09/2026",
                         estado = "Abierto"
                     )
                 )
@@ -98,6 +96,7 @@ object CasoRepository {
                             titulo = obj.optString("titulo", ""),
                             descripcion = obj.optString("descripcion", ""),
                             fecha = obj.optString("fecha", ""),
+                            fechaInicio = obj.optString("fechaInicio", obj.optString("fecha", "")),
                             estado = obj.optString("estado", "Abierto"),
                             evidencias = evidenciasList
                         )
@@ -108,6 +107,14 @@ object CasoRepository {
             }
         }
         isInitialized = true
+    }
+
+    /**
+     * Genera un ID secuencial consecutivo de 3 dígitos (ej: CAS-001, CAS-002, CAS-003).
+     */
+    fun generarSiguienteId(): String {
+        val siguienteNum = listaCasos.size + 1
+        return String.format("CAS-%03d", siguienteNum)
     }
 
     fun agregarCaso(context: Context, nuevoCaso: Caso) {
@@ -172,6 +179,7 @@ object CasoRepository {
                     put("titulo", caso.titulo)
                     put("descripcion", caso.descripcion)
                     put("fecha", caso.fecha)
+                    put("fechaInicio", caso.fechaInicio)
                     put("estado", caso.estado)
                     put("evidencias", evidenciasJsonArray)
                 }

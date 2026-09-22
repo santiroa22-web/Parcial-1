@@ -1,13 +1,15 @@
 package com.udistrital.parcial_1.composables
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Save
@@ -25,12 +27,11 @@ import androidx.compose.ui.unit.sp
 import com.udistrital.parcial_1.model.Caso
 import com.udistrital.parcial_1.model.CasoRepository
 import com.udistrital.parcial_1.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
-/**
- * Pantalla para consultar, editar o eliminar un caso.
- * Cumple con: editar título/descripción, cerrar caso, eliminar,
- * y ver/registrar hallazgos y evidencias.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditarCasoScreen(
@@ -44,9 +45,13 @@ fun EditarCasoScreen(
     val esCasoCerrado = caso.estado == "Cerrado"
 
     var titulo by remember { mutableStateOf(caso.titulo) }
+    var fechaInicio by remember { mutableStateOf(caso.fechaInicio) }
     var descripcion by remember { mutableStateOf(caso.descripcion) }
     var showConfirmCierre by remember { mutableStateOf(false) }
     var showConfirmEliminar by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState()
 
     Column(
         modifier = Modifier
@@ -74,7 +79,7 @@ fun EditarCasoScreen(
                     fontFamily = FontFamily.Serif
                 )
                 Text(
-                    text = "${caso.id}  •  ${caso.fecha}",
+                    text = "${caso.id}  •  Reg: ${caso.fecha}",
                     fontSize = 12.sp,
                     color = DetectiveAccentCyan,
                     fontWeight = FontWeight.Bold
@@ -112,6 +117,42 @@ fun EditarCasoScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Campo Fecha de Inicio con Calendario
+        Column {
+            Text("Fecha de inicio", fontSize = 12.sp, color = DetectiveTextSecondary, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = fechaInicio,
+                onValueChange = {},
+                readOnly = true,
+                enabled = !esCasoCerrado,
+                trailingIcon = {
+                    if (!esCasoCerrado) {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = "Seleccionar fecha", tint = DetectiveAccentCyan)
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = DetectiveTextPrimary,
+                    unfocusedTextColor = DetectiveTextPrimary,
+                    disabledTextColor = DetectiveTextSecondary,
+                    focusedBorderColor = DetectiveAccentCyan,
+                    unfocusedBorderColor = DetectiveCardBorder,
+                    disabledBorderColor = DetectiveCardBorder.copy(alpha = 0.3f),
+                    focusedContainerColor = DetectiveCardBg,
+                    unfocusedContainerColor = DetectiveCardBg,
+                    disabledContainerColor = DetectiveCardBg.copy(alpha = 0.6f)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !esCasoCerrado) { showDatePicker = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         CampoTextoDetectiveEditable(
             label = "Descripción",
             value = descripcion,
@@ -133,7 +174,11 @@ fun EditarCasoScreen(
                     if (titulo.isNotBlank()) {
                         CasoRepository.actualizarCaso(
                             context,
-                            caso.copy(titulo = titulo, descripcion = descripcion)
+                            caso.copy(
+                                titulo = titulo,
+                                fechaInicio = fechaInicio,
+                                descripcion = descripcion
+                            )
                         )
                         onGuardado()
                     }
@@ -168,7 +213,6 @@ fun EditarCasoScreen(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // Eliminar caso (disponible en cualquier estado)
         OutlinedButton(
             onClick = { showConfirmEliminar = true },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
@@ -181,6 +225,35 @@ fun EditarCasoScreen(
             Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("Eliminar caso", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+
+    // Diálogo del Calendario
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            fechaInicio = formatter.format(Date(millis))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Aceptar", color = DetectiveAccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar", color = DetectiveTextSecondary)
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 

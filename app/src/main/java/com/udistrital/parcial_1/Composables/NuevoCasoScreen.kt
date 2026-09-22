@@ -1,12 +1,14 @@
 package com.udistrital.parcial_1.composables
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,11 +25,10 @@ import com.udistrital.parcial_1.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /**
- * Pantalla para crear un caso nuevo.
- * Campos mínimos según el profesor: título, descripción.
- * Fecha se toma automáticamente y estado inicial es "Abierto".
+ * Pantalla para crear un caso nuevo con ID consecutivo (ej: CAS-003) y selector de fecha.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,8 +37,15 @@ fun NuevoCasoScreen(
     onVolver: () -> Unit
 ) {
     val context = LocalContext.current
+    val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+    val fechaHoy = remember { sdf.format(Date()) }
+
     var titulo by remember { mutableStateOf("") }
+    var fechaInicio by remember { mutableStateOf(fechaHoy) }
     var descripcion by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState()
 
     Column(
         modifier = Modifier
@@ -67,6 +75,7 @@ fun NuevoCasoScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Campo: Título
         CampoTextoDetective(
             label = "Título",
             value = titulo,
@@ -76,6 +85,37 @@ fun NuevoCasoScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Campo: Fecha de Inicio con Calendario
+        Column {
+            Text(text = "Fecha de inicio", fontSize = 12.sp, color = DetectiveTextSecondary, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = fechaInicio,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.CalendarToday, contentDescription = "Seleccionar fecha", tint = DetectiveAccentCyan)
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = DetectiveTextPrimary,
+                    unfocusedTextColor = DetectiveTextPrimary,
+                    focusedBorderColor = DetectiveAccentCyan,
+                    unfocusedBorderColor = DetectiveCardBorder,
+                    focusedContainerColor = DetectiveCardBg,
+                    unfocusedContainerColor = DetectiveCardBg
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Campo: Descripción
         CampoTextoDetective(
             label = "Descripción",
             value = descripcion,
@@ -89,14 +129,15 @@ fun NuevoCasoScreen(
         Button(
             onClick = {
                 if (titulo.isNotBlank()) {
-                    val fechaActual = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-                    val nuevoCodigo = "CAS-${System.currentTimeMillis()}"
+                    // Genera ID en orden secuencial consecutivo
+                    val nuevoCodigo = CasoRepository.generarSiguienteId()
 
                     val nuevoCaso = Caso(
                         id = nuevoCodigo,
                         titulo = titulo,
                         descripcion = if (descripcion.isBlank()) "Sin descripción" else descripcion,
-                        fecha = fechaActual,
+                        fecha = fechaHoy,
+                        fechaInicio = fechaInicio,
                         estado = "Abierto"
                     )
 
@@ -114,6 +155,35 @@ fun NuevoCasoScreen(
             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("Guardar caso", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+
+    // Modal / Diálogo del Calendario
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            fechaInicio = formatter.format(Date(millis))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Aceptar", color = DetectiveAccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar", color = DetectiveTextSecondary)
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

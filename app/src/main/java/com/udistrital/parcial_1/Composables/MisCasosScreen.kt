@@ -26,9 +26,8 @@ import com.udistrital.parcial_1.model.CasoRepository
 import com.udistrital.parcial_1.ui.theme.*
 
 /**
- * Listado de casos con búsqueda por título/descripción y filtro por estado.
- * Cumple con el requisito: "El listado debe permitir buscar casos y
- * visualizar su estado".
+ * Listado de casos con búsqueda por título/descripción/ID y filtro por estado.
+ * Muestra la fecha de inicio en cada tarjeta.
  */
 @Composable
 fun MisCasosScreen(
@@ -45,10 +44,10 @@ fun MisCasosScreen(
     val todosLosCasos = CasoRepository.listaCasos
     val casosFiltrados = todosLosCasos.filter { caso ->
         caso.estado == filtroEstado &&
-            (searchQuery.isBlank() ||
-                caso.titulo.contains(searchQuery, ignoreCase = true) ||
-                caso.descripcion.contains(searchQuery, ignoreCase = true) ||
-                caso.id.contains(searchQuery, ignoreCase = true))
+                (searchQuery.isBlank() ||
+                        caso.titulo.contains(searchQuery, ignoreCase = true) ||
+                        caso.descripcion.contains(searchQuery, ignoreCase = true) ||
+                        caso.id.contains(searchQuery, ignoreCase = true))
     }
 
     Column(
@@ -105,7 +104,7 @@ fun MisCasosScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Buscador (requisito del profesor)
+        // Buscador
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -229,7 +228,11 @@ fun TarjetaCasoItem(caso: Caso, onClick: () -> Unit = {}) {
                     modifier = Modifier.size(12.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = caso.fecha, fontSize = 11.sp, color = DetectiveTextSecondary)
+                Text(
+                    text = "Inicio: ${caso.fechaInicio}",
+                    fontSize = 11.sp,
+                    color = DetectiveTextSecondary
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
