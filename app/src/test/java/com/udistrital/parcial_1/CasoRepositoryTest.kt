@@ -5,18 +5,7 @@ import com.udistrital.parcial_1.model.Evidencia
 import org.junit.Assert.*
 import org.junit.Test
 
-/**
- * Pruebas unitarias para la lógica de dominio del modelo Caso/Evidencia.
- * Cubren los requisitos mínimos del parcial:
- *  - Crear y editar caso (modelo)
- *  - Gestionar estado y cierre
- *  - Búsqueda y filtrado en listas
- *  - Registro de hallazgos/evidencias (texto, imagen y documento)
- *  - Eliminación de casos y evidencias
- *
- * Las funciones que persisten en SharedPreferences requieren un Context de
- * Android y se validan en pruebas de instrumentación (androidTest).
- */
+
 class CasoRepositoryTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -31,7 +20,9 @@ class CasoRepositoryTest {
         titulo = titulo,
         descripcion = descripcion,
         fecha = "21/09/2026",
-        estado = estado
+        estado = estado,
+        fechaInicio = TODO(),
+        evidencias = TODO(),
     )
 
     private fun hallazgoDeEjemplo(id: String = "EV-001") = Evidencia(

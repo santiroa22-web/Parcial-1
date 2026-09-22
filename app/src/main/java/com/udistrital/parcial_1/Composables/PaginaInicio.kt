@@ -21,7 +21,9 @@ import com.udistrital.parcial_1.ui.theme.*
 fun PaginaInicio() {
     val context = LocalContext.current
     var showNuevoCaso by remember { mutableStateOf(false) }
-    var casoSeleccionadoParaEditar by remember { mutableStateOf<Caso?>(null) }
+    var casoSeleccionadoParaEditar by remember {
+        mutableStateOf<Caso?>(null)
+    }
 
     LaunchedEffect(Unit) {
         CasoRepository.cargarCasos(context)
@@ -48,7 +50,7 @@ fun PaginaInicio() {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 16.dp)
+                            .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 12.dp) // top = 28.dp lo despega del borde físico
                     ) {
                         Text(
                             text = "SmartTrace",

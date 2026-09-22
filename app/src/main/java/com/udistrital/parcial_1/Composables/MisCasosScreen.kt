@@ -25,10 +25,7 @@ import com.udistrital.parcial_1.model.Caso
 import com.udistrital.parcial_1.model.CasoRepository
 import com.udistrital.parcial_1.ui.theme.*
 
-/**
- * Listado de casos con búsqueda por título/descripción/ID y filtro por estado.
- * Muestra la fecha de inicio en cada tarjeta.
- */
+
 @Composable
 fun MisCasosScreen(
     onCasoSeleccionado: (Caso) -> Unit
