@@ -4,25 +4,24 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import org.json.JSONArray
 import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
+/**
+ * Modelo de un caso criminal.
+ * Cumple con los campos mínimos requeridos por el profesor:
+ * título, descripción, fecha y estado.
+ * Además cada caso tiene una lista de hallazgos/evidencias.
+ */
 data class Caso(
     val id: String,
     var titulo: String,
-    var categoria: String,
-    var fecha: String,
-    var ubicacion: String,
-    var implicados: String,
-    var prioridad: String,
-    var estado: String, // "Abierto" o "Cerrado"
     var descripcion: String,
+    var fecha: String,
+    var estado: String, // "Abierto" o "Cerrado"
     val evidencias: MutableList<Evidencia> = mutableStateListOf()
 )
 
 /**
- * Representa un hallazgo o evidencia asociado a un caso.
+ * Hallazgo o evidencia asociada a un caso.
  * tipo puede ser: "Hallazgo" (texto), "Imagen" o "Documento".
  */
 data class Evidencia(
@@ -34,6 +33,10 @@ data class Evidencia(
     val fecha: String
 )
 
+/**
+ * Repositorio en memoria con persistencia en SharedPreferences.
+ * Encapsula las operaciones CRUD sobre los casos.
+ */
 object CasoRepository {
     val listaCasos = mutableStateListOf<Caso>()
     private var isInitialized = false
@@ -45,31 +48,25 @@ object CasoRepository {
 
         listaCasos.clear()
         if (jsonStr.isNullOrEmpty()) {
-            val casosIniciales = listOf(
-                Caso(
-                    id = "CAS-2026-001",
-                    titulo = "Hurto en la Joyería Real",
-                    categoria = "Robo",
-                    fecha = "15/09/2026",
-                    ubicacion = "Centro Histórico, Calle 11",
-                    implicados = "Sujeto no identificado (Encapuchado)",
-                    prioridad = "Alta",
-                    estado = "Abierto",
-                    descripcion = "Ingreso nocturno forzando la cerradura posterior. Sustracción de joyas evaluadas en $50M."
-                ),
-                Caso(
-                    id = "CAS-2026-002",
-                    titulo = "Fraude Bancario Digital",
-                    categoria = "Ciberdelito",
-                    fecha = "10/09/2026",
-                    ubicacion = "Plataforma Virtual BankLocal",
-                    implicados = "Alias 'Phisher' • Víctima: Empresa S.A.S",
-                    prioridad = "Media",
-                    estado = "Abierto",
-                    descripcion = "Desvío de fondos mediante suplantación de identidad en la pasarela de pagos."
+            // Casos iniciales de ejemplo
+            listaCasos.addAll(
+                listOf(
+                    Caso(
+                        id = "CAS-2026-001",
+                        titulo = "Hurto en la Joyería Real",
+                        descripcion = "Ingreso nocturno forzando la cerradura posterior. Sustracción de joyas.",
+                        fecha = "15/09/2026",
+                        estado = "Abierto"
+                    ),
+                    Caso(
+                        id = "CAS-2026-002",
+                        titulo = "Fraude Bancario Digital",
+                        descripcion = "Desvío de fondos mediante suplantación de identidad en pasarela de pagos.",
+                        fecha = "10/09/2026",
+                        estado = "Abierto"
+                    )
                 )
             )
-            listaCasos.addAll(casosIniciales)
             guardarCasos(context)
         } else {
             try {
@@ -99,13 +96,9 @@ object CasoRepository {
                         Caso(
                             id = obj.optString("id", ""),
                             titulo = obj.optString("titulo", ""),
-                            categoria = obj.optString("categoria", ""),
-                            fecha = obj.optString("fecha", ""),
-                            ubicacion = obj.optString("ubicacion", ""),
-                            implicados = obj.optString("implicados", ""),
-                            prioridad = obj.optString("prioridad", ""),
-                            estado = obj.optString("estado", "Abierto"),
                             descripcion = obj.optString("descripcion", ""),
+                            fecha = obj.optString("fecha", ""),
+                            estado = obj.optString("estado", "Abierto"),
                             evidencias = evidenciasList
                         )
                     )
@@ -131,16 +124,19 @@ object CasoRepository {
         }
     }
 
+    fun eliminarCaso(context: Context, casoId: String) {
+        listaCasos.removeAll { it.id == casoId }
+        guardarCasos(context)
+    }
+
     fun cerrarCaso(context: Context, casoId: String) {
         val index = listaCasos.indexOfFirst { it.id == casoId }
         if (index != -1) {
-            val casoModificado = listaCasos[index].copy(estado = "Cerrado")
-            listaCasos[index] = casoModificado
+            listaCasos[index] = listaCasos[index].copy(estado = "Cerrado")
             guardarCasos(context)
         }
     }
 
-    /** Registra un hallazgo o evidencia (texto, imagen o documento) dentro de un caso. */
     fun agregarEvidencia(context: Context, casoId: String, evidencia: Evidencia) {
         val caso = listaCasos.find { it.id == casoId } ?: return
         caso.evidencias.add(0, evidencia)
@@ -158,30 +154,28 @@ object CasoRepository {
         for (caso in listaCasos) {
             val evidenciasJsonArray = JSONArray()
             for (ev in caso.evidencias) {
-                val eObj = JSONObject().apply {
-                    put("id", ev.id)
-                    put("tipo", ev.tipo)
-                    put("descripcion", ev.descripcion)
-                    put("uri", ev.uri ?: "")
-                    put("nombreArchivo", ev.nombreArchivo ?: "")
-                    put("fecha", ev.fecha)
-                }
-                evidenciasJsonArray.put(eObj)
+                evidenciasJsonArray.put(
+                    JSONObject().apply {
+                        put("id", ev.id)
+                        put("tipo", ev.tipo)
+                        put("descripcion", ev.descripcion)
+                        put("uri", ev.uri ?: "")
+                        put("nombreArchivo", ev.nombreArchivo ?: "")
+                        put("fecha", ev.fecha)
+                    }
+                )
             }
 
-            val obj = JSONObject().apply {
-                put("id", caso.id)
-                put("titulo", caso.titulo)
-                put("categoria", caso.categoria)
-                put("fecha", caso.fecha)
-                put("ubicacion", caso.ubicacion)
-                put("implicados", caso.implicados)
-                put("prioridad", caso.prioridad)
-                put("estado", caso.estado)
-                put("descripcion", caso.descripcion)
-                put("evidencias", evidenciasJsonArray)
-            }
-            jsonArray.put(obj)
+            jsonArray.put(
+                JSONObject().apply {
+                    put("id", caso.id)
+                    put("titulo", caso.titulo)
+                    put("descripcion", caso.descripcion)
+                    put("fecha", caso.fecha)
+                    put("estado", caso.estado)
+                    put("evidencias", evidenciasJsonArray)
+                }
+            )
         }
         val prefs = context.getSharedPreferences("SmartTracePrefs", Context.MODE_PRIVATE)
         prefs.edit().putString("casos_guardados", jsonArray.toString()).commit()
