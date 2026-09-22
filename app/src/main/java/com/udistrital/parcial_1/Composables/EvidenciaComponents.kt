@@ -42,11 +42,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Genera una fecha/hora legible para el registro de una evidencia. */
 fun fechaHoraActual(): String =
     SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
 
-/** Consulta el nombre "amigable" de un archivo (documento) a partir de su Uri. */
+/** Nombre "amigable" del archivo (documento) a partir de su Uri. */
 fun obtenerNombreArchivo(context: android.content.Context, uri: Uri): String {
     var nombre = "Documento adjunto"
     try {
@@ -56,21 +55,16 @@ fun obtenerNombreArchivo(context: android.content.Context, uri: Uri): String {
                 nombre = cursor.getString(nameIndex) ?: nombre
             }
         }
-    } catch (e: Exception) {
-        // Se conserva el nombre por defecto si no se puede resolver
-    }
+    } catch (_: Exception) { }
     return nombre
 }
 
 /**
- * Sección embebida en el detalle/edición de un caso para registrar y
- * consultar los hallazgos y evidencias asociados (texto, imagen, documento).
+ * Sección de hallazgos y evidencias asociada a un caso.
+ * Soporta tres tipos: Hallazgo (texto), Imagen y Documento.
  */
 @Composable
-fun SeccionEvidencias(
-    caso: Caso,
-    habilitado: Boolean
-) {
+fun SeccionEvidencias(caso: Caso, habilitado: Boolean) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
 
@@ -81,15 +75,12 @@ fun SeccionEvidencias(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Hallazgos y Evidencias",
+                text = "Hallazgos y evidencias",
                 fontSize = 13.sp,
                 color = DetectiveAccentCyan,
                 fontWeight = FontWeight.Bold
             )
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = DetectiveBadgeBg
-            ) {
+            Surface(shape = RoundedCornerShape(8.dp), color = DetectiveBadgeBg) {
                 Text(
                     text = "${caso.evidencias.size}",
                     fontSize = 11.sp,
@@ -110,7 +101,7 @@ fun SeccionEvidencias(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Aún no se han registrado hallazgos ni evidencias para este expediente.",
+                    text = "Aún no se han registrado hallazgos ni evidencias.",
                     fontSize = 12.sp,
                     color = DetectiveTextSecondary,
                     modifier = Modifier.padding(14.dp)
@@ -143,7 +134,7 @@ fun SeccionEvidencias(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Agregar Hallazgo / Evidencia", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Agregar hallazgo / evidencia", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -183,9 +174,7 @@ fun EvidenciaItem(
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             context.startActivity(intent)
-                        } catch (e: Exception) {
-                            // No hay una app que pueda abrir el documento
-                        }
+                        } catch (_: Exception) { }
                     }
                 } else base
             }
@@ -208,12 +197,17 @@ fun EvidenciaItem(
                     color = DetectiveAccentCyan
                 )
                 Text(
-                    text = if (evidencia.tipo == "Documento") (evidencia.nombreArchivo ?: evidencia.descripcion) else evidencia.descripcion,
+                    text = if (evidencia.tipo == "Documento")
+                        (evidencia.nombreArchivo ?: evidencia.descripcion)
+                    else evidencia.descripcion,
                     fontSize = 13.sp,
                     color = DetectiveTextPrimary,
                     maxLines = 3
                 )
-                if (evidencia.tipo == "Documento" && !evidencia.nombreArchivo.isNullOrBlank() && evidencia.descripcion.isNotBlank()) {
+                if (evidencia.tipo == "Documento"
+                    && !evidencia.nombreArchivo.isNullOrBlank()
+                    && evidencia.descripcion.isNotBlank()
+                ) {
                     Text(
                         text = evidencia.descripcion,
                         fontSize = 11.sp,
@@ -276,7 +270,7 @@ fun ImagenEvidenciaThumbnail(uriString: String) {
             context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
                 BitmapFactory.decodeStream(it)
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -323,9 +317,7 @@ fun DialogAgregarEvidencia(
     val seleccionarImagenLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null) {
-            imagenUri = uri
-        }
+        if (uri != null) imagenUri = uri
     }
 
     val seleccionarDocumentoLauncher = rememberLauncherForActivityResult(
@@ -337,9 +329,7 @@ fun DialogAgregarEvidencia(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-            } catch (e: Exception) {
-                // Algunos proveedores no soportan permisos persistentes; se continúa igual
-            }
+            } catch (_: Exception) { }
             documentoUri = uri
             documentoNombre = obtenerNombreArchivo(context, uri)
         }
@@ -356,7 +346,7 @@ fun DialogAgregarEvidencia(
         containerColor = DetectiveCardBg,
         title = {
             Text(
-                text = "Nuevo Hallazgo / Evidencia",
+                text = "Nuevo hallazgo / evidencia",
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = DetectiveTextPrimary
@@ -398,7 +388,7 @@ fun DialogAgregarEvidencia(
                     text = when (tipoSeleccionado) {
                         "Imagen" -> "Selecciona una foto o imagen de evidencia."
                         "Documento" -> "Adjunta un documento (PDF, Word, etc.) como evidencia."
-                        else -> "Describe el hallazgo o la evidencia encontrada en la escena o investigación."
+                        else -> "Describe el hallazgo encontrado."
                     },
                     fontSize = 12.sp,
                     color = DetectiveTextSecondary
@@ -416,7 +406,7 @@ fun DialogAgregarEvidencia(
                     ) {
                         Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (imagenUri == null) "Seleccionar Imagen" else "Cambiar Imagen", fontSize = 13.sp)
+                        Text(if (imagenUri == null) "Seleccionar imagen" else "Cambiar imagen", fontSize = 13.sp)
                     }
 
                     if (imagenUri != null) {
@@ -444,7 +434,7 @@ fun DialogAgregarEvidencia(
                     ) {
                         Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (documentoUri == null) "Seleccionar Documento" else "Cambiar Documento", fontSize = 13.sp)
+                        Text(if (documentoUri == null) "Seleccionar documento" else "Cambiar documento", fontSize = 13.sp)
                     }
 
                     if (documentoNombre != null) {
@@ -484,7 +474,9 @@ fun DialogAgregarEvidencia(
                     onValueChange = { descripcion = it },
                     placeholder = {
                         Text(
-                            text = if (tipoSeleccionado == "Hallazgo") "Ej: Huella dactilar en la manija de la puerta" else "Descripción (opcional)",
+                            text = if (tipoSeleccionado == "Hallazgo")
+                                "Ej: Huella dactilar en la manija de la puerta"
+                            else "Descripción (opcional)",
                             fontSize = 12.sp
                         )
                     },
@@ -506,7 +498,7 @@ fun DialogAgregarEvidencia(
         confirmButton = {
             Button(
                 onClick = {
-                    val nuevaEvidencia = when (tipoSeleccionado) {
+                    val nueva = when (tipoSeleccionado) {
                         "Imagen" -> imagenUri?.let { uri ->
                             Evidencia(
                                 id = "EV-${System.currentTimeMillis()}",
@@ -535,7 +527,7 @@ fun DialogAgregarEvidencia(
                             )
                         } else null
                     }
-                    if (nuevaEvidencia != null) onGuardar(nuevaEvidencia)
+                    if (nueva != null) onGuardar(nueva)
                 },
                 enabled = puedeGuardar,
                 colors = ButtonDefaults.buttonColors(containerColor = DetectiveAccentBlue)
